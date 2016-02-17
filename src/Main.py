@@ -3,12 +3,34 @@ import pygame
 from random import randint
 import math
 from math import degrees
-
+stopwatch = {'m': 0, 's': 0, 'mils':0}
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((1280,720))
 backdrop = pygame.image.load('Backdrop1.png').convert()
+pygame.font.init()
 
+class highscore(object):
+    
+    def __init__(self):
+        
+        with open('highscore.txt') as highscores:
+            highestscore = highscores.readline().rstrip()
+            savedhighscore = 'High score: {0}'.format(highestscore)
+            self.highestscore = int(highestscore)
+
+            highscores.close()
+        
+        font = pygame.font.Font(None, 60)
+        self.highscoredisplay = font.render(savedhighscore, 0, (255,255,255))
+        
+        
+    def renderscore(self):
+        
+        screen.blit(self.highscoredisplay, (875, 0))
+        
+    
 #Gameover function.
+
 def gameover():
 
     #Draws the game over image.
@@ -16,6 +38,18 @@ def gameover():
     #.flip() need to be called for the screen to show the changes.
     pygame.display.flip()
     #FOREVER!
+    
+    currenthightotal = int(octopus.score)
+    print currenthightotal
+    highestscore = thehighscore.highestscore
+    print highestscore
+        
+    if currenthightotal > highestscore:
+        print 'New highscore'
+        with open('highscore.txt', 'w') as highscores:
+            
+            highscores.write(str(currenthightotal))
+            highscores.close()    
     while True:
         #JK XD. 
         for event in pygame.event.get():
@@ -38,8 +72,8 @@ class player(object):
         self.speed = 1
         #Angle that it is facing. (Angles go anti-clockwise
         self.angle = 0    
-        
-        
+        self.inkamount = 10
+        self.score = 0
       
         
     def move(self):
@@ -117,7 +151,11 @@ class player(object):
                 
         #Make sprite face the right directions
         self.rotatesprite()
-    
+        font = pygame.font.Font(None, 60)
+        INKamountdisplay = font.render('INK amount: {0}'.format(self.inkamount), 0, (255,255,255))
+        screen.blit(INKamountdisplay, (0, 660))
+        scoreamountdisplay = font.render('Score: {0}'.format(int(self.score)), 0, (255,255,255))
+        screen.blit(scoreamountdisplay, (0, 0))
     pass
 
 
@@ -134,6 +172,7 @@ class enemy(object):    #Enemy class
         self.speed = 3
         self.shoot = 0
         self.shouldshoot = 0
+        self.shouldmove = True
         
     def move(self):
         #This is called to move the enemy.
@@ -141,7 +180,8 @@ class enemy(object):    #Enemy class
         #Pythagoras to find out how far away from the octopus the enemy is.
         #This is so that all of the enemies do not target the octopus.
         #They only target it when it gets close-ish
-        if math.sqrt(((self.x - octopus.x) * (self.x - octopus.x)) + ((self.y - octopus.y) * (self.y - octopus.y))) < 500:
+        distancetoplayer = math.sqrt(((self.x - octopus.x) * (self.x - octopus.x)) + ((self.y - octopus.y) * (self.y - octopus.y)))
+        if distancetoplayer < 500:
             
             if octopus.y > self.y:
                 #Octopus is below enemy
@@ -171,6 +211,10 @@ class enemy(object):    #Enemy class
             
             #This tells the enemy that it should shoot because it is pointing and the octopus.        
             self.shouldshoot = 1
+            self.shouldmove = True
+            if distancetoplayer < 100:
+                self.shouldmove = False
+        
         #Octopus not close enough for the other movement
         else:
             #It will now travel in a cicle.
@@ -182,6 +226,7 @@ class enemy(object):    #Enemy class
                 angletoplayer = 360 + angletoplayer
             #Tells itself that it shouldn't shoot because it is not pointing at the player.
             self.shouldshoot = 0
+            self.shouldmove = True
         #Rotation around the center.
         oldrect = self.sprite.get_rect()
         rotatedsprite = pygame.transform.rotate(self.defaultsprite, angletoplayer)
@@ -192,8 +237,10 @@ class enemy(object):    #Enemy class
         print angletoplayer
         #Traveling along the angle.
         radians = (angletoplayer + 90) * (math.pi / 180)
-        self.x += math.cos(radians) * self.speed
-        self.y -= math.sin(radians) * self.speed
+        
+        if self.shouldmove:
+            self.x += math.cos(radians) * self.speed
+            self.y -= math.sin(radians) * self.speed
         self.rect.x = self.x
         self.rect.y = self.y
         self.pos = self.x, self.y
@@ -214,6 +261,8 @@ class enemy(object):    #Enemy class
         #Checking if any of the players shots have hit it.
         for bally in playerweapons:
             if self.rect.colliderect(bally.rect):
+                bally.die()
+                playerweapons.remove(bally)
                 #If they have...
                 #My life is now a zero.
                 #*cries*
@@ -233,6 +282,7 @@ class ball(object):        #Weapon class
         self.angle = angle
         #Making it faster than the firer
         self.speed = speed + 20
+        self.dead = False
       
         radians = math.radians(angle+90)
         self.x += math.cos(radians) * self.speed
@@ -243,25 +293,87 @@ class ball(object):        #Weapon class
         #Moving away from the firer before hits are detected.
         #This is so you cannot kill yourself.
         self.move()
-        self.move()
-        self.move()
+        
         pass
 
     def move(self):
         #Movement
-        radians = math.radians(self.angle + 90)
-        self.x += math.cos(radians) * self.speed
-        self.y -= math.sin(radians) * self.speed
-        self.rect.x = self.x
-        self.rect.y = self.y
-
+        if not self.dead:
+                
+            radians = math.radians(self.angle + 90)
+            self.x += math.cos(radians) * self.speed
+            self.y -= math.sin(radians) * self.speed
+            self.rect.x = self.x
+            self.rect.y = self.y
+            
+        if self.x > 1280 or self.x < 0:
+            self.die()
+        if self.y > 720 or self.y < 0:
+            self.die()
     def die(self):
         #I know this is a pretty bad way of getting rid of the balls
         #But I don't really know what else to do with them
         self.x = self.y = 4000
         self.speed = 0
+        self.dead = True
         
+class inksac(object):
+    def __init__(self):
+        self.sprite = pygame.image.load('INKpot.png')
+        self.rect = self.sprite.get_rect()
+        self.x = randint(200,1000)
+        self.y = randint(100,620)
+        self.pos = self.x, self.y
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def refresh(self):
+        
+        if self.rect.colliderect(octopus.rect):
+            return True
+        return False
+    def die(self):
+        
+        self.x = self.y = 4000
+        self.pos = self.x, self.y   
 
+class coin(object):
+    def __init__(self):
+        self.sprite = pygame.image.load('coin.png')
+        self.rect = self.sprite.get_rect()
+        self.x = randint(200,1000)
+        self.y = randint(100,620)
+        self.pos = self.x, self.y
+        self.rect.x = self.x
+        self.rect.y = self.y
+    def refresh(self):
+        
+        if self.rect.colliderect(octopus.rect):
+            return True
+        return False
+    def die(self):
+        
+        self.x = self.y = 4000
+        self.pos = self.x, self.y   
+
+
+def incrementtime(stopwatch):
+    font = pygame.font.Font(None, 60)
+    stopwatch['mils'] += 1000/60
+    
+    if stopwatch['mils'] >= 1000:
+        stopwatch['mils'] = 0
+        stopwatch['s'] += 1
+        
+    if stopwatch['s'] == 60:
+        stopwatch['s'] = 0
+        stopwatch['m'] += 1
+    
+    stopwatchdisplay = font.render('Current score: {0}:{1}.{2}'.format(stopwatch['m'], stopwatch['s'], stopwatch['mils']), 0, (255,255,255))
+    
+    octopus.score += 0.0167 
+    return stopwatch
+
+thehighscore = highscore()
 octopus = player(pygame.image.load('8pi1.png')) #Initialising the player as the octopus variable. With the image '8pi1.png'
 playerweapons = [] #Contains all of the shots that the player has fired
 balltimer = 0 #Player firing limit
@@ -270,7 +382,8 @@ baddies = [] #Contains all of the enemies
 baddieweapons = [] #Contains all of the shots that the enemy has fired.
 baddietimer = 0 # Baddie spawn timer
 
-
+INKsacs = [inksac()]
+coins = [coin()]
 balls = [playerweapons, baddieweapons]
 
 #Game LOOP!!!!
@@ -290,11 +403,11 @@ while True:
 
         if octopus.angle == 0:
 
-            octopus.angle = 360 - 6
+            octopus.angle = 360 - 5
 
         else:
 
-            octopus.angle -= 6
+            octopus.angle -= 5
         
         if octopus.speed >= 3.002:
                 #Apply the speed penalty for turning
@@ -305,11 +418,11 @@ while True:
 
         if octopus.angle == 360:
 
-            octopus.angle = 0 + 6
+            octopus.angle = 0 + 5
 
         else:
 
-            octopus.angle += 6
+            octopus.angle += 5
 
         if octopus.speed >= 3.002:
                 #Speed penalty!!
@@ -321,10 +434,11 @@ while True:
         octopus.move()
 
     #Fire but only if allowed.
-    if keypressed[pygame.K_SPACE] and balltimer <= 0:
+    if keypressed[pygame.K_SPACE] and balltimer <= 0 and octopus.inkamount > 0:
         #Add new ball with sprite ink
         playerweapons.append(ball(octopus.angle, octopus.speed, octopus.rect, pygame.image.load('INK.png')))
         balltimer = 10
+        octopus.inkamount -= 1
     balltimer -= 1
     #m8 5 seconds are up so spawn a new baddie!
     if baddietimer == 300:
@@ -357,7 +471,34 @@ while True:
             bally.move()
             screen.blit(bally.sprite, (bally.x, bally.y))
     
+    for inksacy in INKsacs:
+        
+        
+        
+        if inksacy.refresh():
+            
+            octopus.inkamount += 5
+            inksacy.die()
+            INKsacs.remove(inksacy)
+            INKsacs.append(inksac())
+        screen.blit(inksacy.sprite, (inksacy.pos))
+    
+    for coiny in coins:
+        
+        if coiny.refresh():
+            
+            octopus.score += 10
+            coiny.die()
+            coins.remove(coiny)
+            coins.append(coin())
+        screen.blit(coiny.sprite, (coiny.pos))
+    
+    
+    stopwatch = incrementtime(stopwatch)
+    thehighscore.renderscore()
     #Show all of that to the user.
     pygame.display.flip()
     #Game is locked at 60fps
+    
+    
     clock.tick(60)
