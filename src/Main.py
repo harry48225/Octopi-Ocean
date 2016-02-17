@@ -1,4 +1,3 @@
-#TODO Add powerUPs!!!
 import pygame
 from random import randint
 import math
