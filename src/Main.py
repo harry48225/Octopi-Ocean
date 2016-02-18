@@ -356,7 +356,7 @@ class coin(object):
 
 
 def incrementtime(stopwatch):
-    font = pygame.font.Font(None, 60)
+    #font = pygame.font.Font(None, 60)
     stopwatch['mils'] += 1000/60
     
     if stopwatch['mils'] >= 1000:
@@ -366,8 +366,8 @@ def incrementtime(stopwatch):
     if stopwatch['s'] == 60:
         stopwatch['s'] = 0
         stopwatch['m'] += 1
-    
-    stopwatchdisplay = font.render('Current score: {0}:{1}.{2}'.format(stopwatch['m'], stopwatch['s'], stopwatch['mils']), 0, (255,255,255))
+    print str(stopwatch['s'])
+    #stopwatchdisplay = font.render('Current score: {0}:{1}.{2}'.format(stopwatch['m'], stopwatch['s'], stopwatch['mils']), 0, (255,255,255))
     
     octopus.score += 0.0167 
     return stopwatch
@@ -439,10 +439,13 @@ while True:
         balltimer = 10
         octopus.inkamount -= 1
     balltimer -= 1
+    seconds = stopwatch['s'] + (stopwatch['m'] * 60)
     #m8 5 seconds are up so spawn a new baddie!
-    if baddietimer == 300:
+    if baddietimer > 300 - (seconds):
+        
+        for i in range(int((seconds+30)/30)):                        
                                 # At a random location
-        baddies.append(enemy(randint(0,1280), randint(0,720)))
+            baddies.append(enemy(randint(0,1280), randint(0,720)))
         baddietimer = 0
     #Increment timer
     baddietimer += 1
